@@ -1,0 +1,4 @@
+from .base import REGISTRY, register
+from . import asian_sweep, fast_meanrev, orderflow_imbalance, meanrev_pairs, regime_switch, session_vol, sweep_fade, usd_leadlag, velocity_breakout, vwap_trend  # noqa: F401 — populate registry
+
+__all__ = ["REGISTRY", "register"]

@@ -1,0 +1,39 @@
+# Books for the portfolio runner (scripts/run_portfolio.py).
+# weight = share of the risk budget (config/risk.yaml); sum ~1.
+# Same symbol in several books is fine — targets are netted before ordering.
+#
+# NOTE: weights and per-book params below are PLACEHOLDERS. Set them from your
+# own research before going live.
+magic: 1001           # order tag for this portfolio bot; lets a second strategy
+                      # share one account without netting against these positions.
+                      # null = manage all positions on the account.
+sl_atr_mult: 0.0      # disaster stop (chandelier trail) on the NET position, as an
+                      # ATR multiple. 0 = off. Tune to your own risk tolerance.
+tp_atr_mult: 0.0      # broker-side take profit (0 = off; strategy exits first)
+exposure_cap: 0.0     # cap |net directional exposure| per symbol as a leverage
+                      # multiple of equity. Bounds books stacking the same
+                      # direction; 0 = off.
+books:
+  - strategy: vwap_trend
+    symbol: XAUUSD
+    timeframe: M5
+    weight: 0.2        # placeholder
+  - strategy: london_orb
+    symbol: XAUUSD
+    timeframe: M1
+    weight: 0.15       # placeholder
+  - strategy: sweep_fade
+    symbol: XAUUSD
+    timeframe: M1
+    weight: 0.15       # placeholder
+  - strategy: ratio_mr
+    symbol: XAUUSD          # synthetic-spread mean reversion; symbol2 forms the
+    symbol2: XAGUSD         # spread (signal input) but is not traded by default.
+    beta: 1.0
+    timeframe: M5
+    weight: 0.15            # placeholder
+    trade_symbol2: false
+  - strategy: asian_sweep
+    symbol: XAUUSD
+    timeframe: M1
+    weight: 0.15           # placeholder

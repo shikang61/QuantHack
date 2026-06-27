@@ -1,0 +1,24 @@
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.ipynb_checkpoints/
+
+# Secrets / local config
+.env
+*.env
+.claude/settings.local.json
+
+# Generated data & runtime artifacts
+dashboard/.cache/
+data/raw/
+data/real/
+data/processed/
+data/ticks/
+data/bars/
+data/calendar/
+logs/
+*.parquet

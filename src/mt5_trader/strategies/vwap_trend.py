@@ -1,0 +1,71 @@
+"""Session-VWAP stretch continuation ("volume trend").
+
+Price stretched a few sigma beyond the session VWAP tends to continue rather
+than revert; enter with the stretch and exit when it normalizes or the session
+ends. Needs bars with n_ticks (VWAP weights) — standard time_bars output.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+import polars as pl
+
+from ..features.regime import RANGE, regime_series
+from .base import register
+
+
+@register
+@dataclass
+class VwapTrend:
+    z_entry: float = 2.0
+    z_exit: float = 0.5
+    z_n: int = 240          # rolling window for stretch normalization
+    warmup_min: int = 120   # skip the first 2h of each session (VWAP unstable)
+    regime_filter: bool = False   # opt-in; gate the signal to TREND regimes only
+    regime_coarsen: int = 4       # regime ER window ~ er_n(16) x coarsen x bar; 4 -> ~5h on M5
+
+    name = "vwap_trend"
+
+    def signal(self, bars: pl.DataFrame) -> np.ndarray:
+        # research bars carry n_ticks, live MT5 bars carry tick_volume
+        w = ("n_ticks" if "n_ticks" in bars.columns
+             else "tick_volume" if "tick_volume" in bars.columns else None)
+        weight = pl.col(w) if w else pl.lit(1.0)
+        df = bars.with_columns(
+            date=pl.col("ts").dt.date(),
+            minute=pl.col("ts").dt.hour() * 60 + pl.col("ts").dt.minute(),
+        ).with_columns(
+            vwap=(pl.col("close") * weight).cum_sum().over("date")
+                 / weight.cum_sum().over("date"),
+        ).with_columns(
+            dist=(pl.col("close").log() - pl.col("vwap").log()),
+        ).with_columns(
+            z=pl.col("dist") / pl.col("dist").rolling_std(self.z_n),
+        )
+
+        z = df["z"].to_numpy()
+        minute = df["minute"].to_numpy()
+        dates = df["date"].to_numpy()
+
+        pos = np.zeros(len(z))
+        state = 0.0
+        day = None
+        for t in range(len(z)):
+            if dates[t] != day:
+                day, state = dates[t], 0.0  # session reset
+            if np.isnan(z[t]):
+                pos[t] = state
+                continue
+            if state == 0.0:
+                if minute[t] > self.warmup_min and abs(z[t]) >= self.z_entry:
+                    state = float(np.sign(z[t]))
+            elif abs(z[t]) <= self.z_exit:
+                state = 0.0
+            pos[t] = state
+        if self.regime_filter:
+            # continuation bleeds in chop: trade only when the intraday regime
+            # is a trend (inverse of ratio_mr, which trades only in RANGE).
+            regime = regime_series(bars, coarsen=self.regime_coarsen)
+            pos = np.where(regime != RANGE, pos, 0.0)
+        return pos

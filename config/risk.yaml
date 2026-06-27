@@ -1,0 +1,35 @@
+# Standing risk posture. Times UTC. Single always-on budget (no competition rounds).
+# target_vol = annualized vol budget; sizing = min(target_vol / realized_vol, max_leverage).
+# loss_limit = daily kill switch: drawdown fraction from the day-START equity. On a
+#   trip the bot flattens and stands down flat for the rest of the UTC day, then
+#   auto-resumes the next UTC day (the loop keeps running — a kill is not a process exit).
+# give_back = daily trailing kill: flatten if equity falls this fraction from the
+#   day's PEAK (protects an intraday gain; 0 = off).
+
+posture:
+  max_leverage: 2
+  target_vol:   0.30   # annualized vol budget
+  loss_limit:   0.04   # 4% daily kill, auto-resume next UTC day
+  give_back:    0.0    # trailing daily kill off
+
+# Economic-calendar event mute (defensive overlay). Forces flat from before_min
+# before to after_min after any matching event. OFF until a calendar file is
+# populated AND backtested with scripts/eval_blackout.py.
+blackout:
+  enabled: true
+  calendar: data/calendar/events.parquet   # cols: ts(UTC), impact, currency, title
+  before_min: 15
+  after_min: 15
+  min_impact: high          # high | medium | low (this level and above)
+  currencies: [USD]         # gold tracks USD; widen if your feed tags others
+
+# Fast volatility circuit breaker (defensive overlay). Forces flat on bars whose
+# 1-bar return or short-ATR/baseline ratio is abnormally large — the fast gate
+# the (slow, 240-bar) realized-vol sizer can't react to. Bar-count windows
+# assume M5. OFF until backtested with scripts/eval_vol_guard.py.
+vol_guard:
+  enabled: false
+  atr_n: 14
+  atr_base_n: 288           # ~1 trading day on M5
+  atr_mult: 3.0             # short ATR > 3x its baseline median = spike
+  ret_limit_bps: 50.0       # |1-bar return| > 0.5% = spike
